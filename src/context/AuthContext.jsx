@@ -37,6 +37,9 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     const data = await authApi.login(email, password);
+    if (data.user?.role !== 'central_admin') {
+      throw new Error('This dashboard is for the central admin only.');
+    }
     setToken(data.access_token);
     setUser(data.user);
     localStorage.setItem('token', data.access_token);

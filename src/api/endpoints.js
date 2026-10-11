@@ -38,6 +38,15 @@ export const collegesApi = {
     const res = await api.post('/colleges', data);
     return res.data;
   },
+  update: async (id, data) => {
+    const res = await api.put(`/colleges/${id}`, data);
+    return res.data;
+  },
+  delete: async (id) => {
+    // 409 while the college still has listings, posts or users
+    const res = await api.delete(`/colleges/${id}`);
+    return res.data;
+  },
 };
 
 // ==================== AMENITIES ====================
@@ -247,6 +256,10 @@ export const postsApi = {
     const res = await api.post('/posts', data);
     return res.data;
   },
+  update: async (id, data) => {
+    const res = await api.put(`/posts/${id}`, data);
+    return res.data;
+  },
   delete: async (id) => {
     const res = await api.delete(`/posts/${id}`);
     return res.data;
@@ -284,4 +297,18 @@ export const imagesApi = {
     const res = await api.delete('/images', { params: { public_id: publicId } });
     return res.data;
   },
+};
+
+// ==================== ADMIN BACK OFFICE ====================
+export const adminApi = {
+  stats: async () => (await api.get('/admin/stats')).data,
+  // { items, total }
+  users: async (params = {}) => (await api.get('/admin/users', { params })).data,
+  // { items, total, total_amount }  (total_amount = sum of paid payments matching the filters)
+  payments: async (params = {}) => (await api.get('/admin/payments', { params })).data,
+  reviews: async (params = {}) => (await api.get('/admin/reviews', { params })).data,
+  deleteReview: async (id) => (await api.delete(`/admin/reviews/${id}`)).data,
+  // kind: hostels | messes | cafeterias; params: { state: active|inactive|all, q, college_id, location, limit, offset }
+  listings: async (kind, params = {}) => (await api.get(`/admin/listings/${kind}`, { params })).data,
+  restoreListing: async (kind, id) => (await api.post(`/admin/listings/${kind}/${id}/restore`)).data,
 };

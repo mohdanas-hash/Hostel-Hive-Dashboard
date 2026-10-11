@@ -1,107 +1,69 @@
-import React, { useState, useEffect } from 'react';
-import { paymentsApi } from '../api/endpoints';
-import { CreditCard, CheckCircle2, XCircle, Clock } from 'lucide-react';
+import React, { useState } from 'react';
+import { Search } from 'lucide-react';
+import { adminApi } from '../api/endpoints';
+import { Badge, Card, DataTable, ErrorBox, Input, PageHeader, Pagination, Select, Spinner, StatCard } from '../components/ui';
+import { fmtDateTime, inr, label, useAsync, useDebounced } from '../lib/utils';
+import { Banknote } from 'lucide-react';
+
+const PAGE = 20;
+const TONE = { paid: 'green', created: 'amber', failed: 'red' };
 
 export default function Payments() {
-  const [payments, setPayments] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [status, setStatus] = useState('');
+  const [kind, setKind] = useState('');
+  const [q, setQ] = useState('');
+  const [offset, setOffset] = useState(0);
+  const search = useDebounced(q);
+  const { data, loading, error, reload } = useAsync(
+    () => adminApi.payments({ limit: PAGE, offset, ...(status && { status }), ...(kind && { kind }), ...(search.trim() && { q: search.trim() }) }),
+    [status, kind, search, offset]
+  );
+  const reset = (set) => (e) => {
+    set(e.target.value);
+    setOffset(0);
+  };
 
-  useEffect(() => {
-    paymentsApi
-      .getMyPayments()
-      .then(setPayments)
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, []);
+  const columns = [
+    { key: 'id', header: '#', render: (r) => <span className="text-slate-500">#{r.id}</span> },
+    {
+      key: 'user', header: 'Student',
+      render: (r) => (
+        <div>
+          <p className="font-medium text-slate-900">{r.user_name ?? `User #${r.user_id}`}</p>
+          {r.user_email && <p className="text-xs text-slate-500">{r.user_email}</p>}
+        </div>
+      ),
+    },
+    { key: 'kind', header: 'For', render: (r) => <div><p className="capitalize">{label(r.kind)}</p><p className="text-xs text-slate-500">{r.hostel_name ?? r.mess_name ?? '—'}</p></div> },
+    { key: 'months', header: 'Months', align: 'right', render: (r) => (r.include_deposit ? `${r.months} + deposit` : r.months) },
+    { key: 'amount', header: 'Amount', align: 'right', render: (r) => <span className="font-semibold">{inr(r.amount)}</span> },
+    { key: 'status', header: 'Status', render: (r) => <Badge tone={TONE[r.status]}>{r.status}</Badge> },
+    { key: 'ref', header: 'Reference', render: (r) => <span className="text-xs text-slate-500 font-mono">{r.provider_payment_id ?? r.provider_order_id}</span> },
+    { key: 'when', header: 'Date', render: (r) => fmtDateTime(r.paid_at ?? r.created_at) },
+  ];
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-          <CreditCard className="w-7 h-7 text-emerald-600" />
-          Payment Transactions
-        </h1>
-        <p className="text-sm text-slate-500">
-          History of hostel rent and mess subscription payments, invoices and payment receipts
-        </p>
+    <>
+      <PageHeader title="Payments" subtitle="Every rent and mess-fee payment. Provider is currently the mock gateway." />
+      <div className="grid sm:grid-cols-2 gap-4 mb-4">
+        <StatCard label="Paid total (current filters)" value={inr(data?.total_amount)} icon={Banknote} tone="green" />
+        <StatCard label="Payments (current filters)" value={data?.total ?? '—'} />
       </div>
-
-      {loading ? (
-        <div className="text-center py-20 text-slate-400">Loading payment records...</div>
-      ) : payments.length === 0 ? (
-        <div className="text-center py-16 bg-white rounded-3xl border border-slate-200 p-8 space-y-3">
-          <CreditCard className="w-12 h-12 text-slate-300 mx-auto" />
-          <h3 className="text-lg font-bold text-slate-700">No Payment History Found</h3>
-          <p className="text-sm text-slate-400 max-w-sm mx-auto">
-            You have not made any hostel rent or mess subscription payments yet.
-          </p>
-        </div>
-      ) : (
-        <div className="bg-white rounded-3xl border border-slate-200 shadow-xs overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm border-collapse">
-              <thead>
-                <tr className="bg-slate-50/75 border-b border-slate-200 text-xs font-bold uppercase text-slate-400">
-                  <th className="py-4 px-6">ID & Order</th>
-                  <th className="py-4 px-6">Kind / Purpose</th>
-                  <th className="py-4 px-6">Amount</th>
-                  <th className="py-4 px-6">Duration</th>
-                  <th className="py-4 px-6">Status</th>
-                  <th className="py-4 px-6">Date</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {payments.map((p) => (
-                  <tr key={p.id} className="hover:bg-slate-50/50 transition">
-                    <td className="py-4 px-6 font-semibold text-slate-900">
-                      <div>#{p.id}</div>
-                      <div className="text-[11px] text-slate-400 font-mono">
-                        {p.provider_order_id}
-                      </div>
-                    </td>
-                    <td className="py-4 px-6">
-                      <span className="font-semibold text-slate-800 capitalize">
-                        {p.kind?.replace('_', ' ')}
-                      </span>
-                      {p.include_deposit && (
-                        <div className="text-[10px] text-emerald-600 font-semibold">
-                          + Security Deposit Included
-                        </div>
-                      )}
-                    </td>
-                    <td className="py-4 px-6 font-black text-emerald-600 text-base">
-                      ₹{p.amount}
-                    </td>
-                    <td className="py-4 px-6 text-slate-600">
-                      {p.months} Month{p.months > 1 ? 's' : ''}
-                    </td>
-                    <td className="py-4 px-6">
-                      {p.status === 'paid' && (
-                        <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700">
-                          <CheckCircle2 className="w-3.5 h-3.5" /> Paid
-                        </span>
-                      )}
-                      {p.status === 'created' && (
-                        <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full bg-amber-100 text-amber-700">
-                          <Clock className="w-3.5 h-3.5" /> Pending
-                        </span>
-                      )}
-                      {p.status === 'failed' && (
-                        <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full bg-red-100 text-red-700">
-                          <XCircle className="w-3.5 h-3.5" /> Failed
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-4 px-6 text-xs text-slate-400">
-                      {new Date(p.created_at).toLocaleDateString()}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      <div className="space-y-4">
+        <ErrorBox error={error} onRetry={reload} />
+        <Card>
+          <div className="p-4 border-b border-slate-200 flex flex-wrap gap-3">
+            <div className="relative flex-1 min-w-48">
+              <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
+              <Input className="pl-9" placeholder="Search student name, email or order id…" value={q} onChange={reset(setQ)} />
+            </div>
+            <Select className="!w-auto" placeholder="Any status" value={status} onChange={reset(setStatus)} options={['paid', 'created', 'failed'].map((v) => ({ value: v, label: v }))} />
+            <Select className="!w-auto" placeholder="Any type" value={kind} onChange={reset(setKind)} options={[{ value: 'hostel_rent', label: 'Hostel rent' }, { value: 'mess_fee', label: 'Mess fee' }]} />
           </div>
-        </div>
-      )}
-    </div>
+          {loading && !data ? <Spinner /> : <DataTable columns={columns} rows={data?.items || []} empty={{ title: 'No payments match' }} />}
+          <Pagination total={data?.total ?? 0} limit={PAGE} offset={offset} onChange={setOffset} />
+        </Card>
+      </div>
+    </>
   );
 }
