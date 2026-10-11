@@ -10,5 +10,12 @@ export default defineConfig({
   ],
   server: {
     port: 3000,
-  }
+    proxy: {
+      '/api': {
+        target: 'https://hostel-hive-backend.onrender.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, ''),
+      },
+    },
+  },
 })

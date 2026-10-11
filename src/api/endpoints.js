@@ -198,7 +198,7 @@ export const admissionsApi = {
     return res.data;
   },
   downloadDocumentUrl: (applicationId, docType) => {
-    const base = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+    const base = import.meta.env.VITE_API_URL || '/api';
     return `${base}/admissions/${applicationId}/documents/${docType}`;
   },
   fetchDocumentBlob: async (applicationId, docType) => {
